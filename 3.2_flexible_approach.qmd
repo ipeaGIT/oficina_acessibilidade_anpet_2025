@@ -1,0 +1,313 @@
+---
+from: markdown+emoji
+code-annotations: hover
+---
+
+
+# Abordagem flexível
+
+Na seção anterior, nós aprendemos uma 'abordagem rápida' para calcular a acessibilidade diretamente dentro do `{r5r}`. Uma limitação dessa abordagem é que ela se restringe apenas a algumas métricas de acessibilidade predefinidas disponíveis no `{r5r}`. Frequentemente, queremos analisar outros tipos de métricas de acessibilidade e/ou ter mais controle sobre as diferentes etapas da análise.
+
+**Nesta seção, aprenderemos como calcular matrizes de tempo de viagem e usá-las para calcular diferentes tipos de métricas de acessibilidade.** Esta é uma abordagem mais 'flexível' que combina os pacotes `{r5r}` e `{accessibility}`. Usaremos novamente os dados de exemplo da cidade de Porto Alegre, Brasil, que vêm com o pacote `{r5r}`.
+
+<!-- package logos side by side  -->
+<div style="text-align: center">
+<table><tr><td><img src='/images/r5r_logo.png' width="180"></td><td><img src='/images/accessibility_logo.png' width="180"></td></tr></table>
+</div>
+
+
+Esta abordagem flexível para calcular a acessibilidade envolve apenas 3 etapas:
+
+1. Construir uma rede de transporte roteável  
+2. Calcular uma matriz de tempo de viagem  
+3. Calcular a acessibilidade  
+
+Agora vamos começar carregando os pacotes necessários:
+
+```{r, message=FALSE}
+# allocating memory to java
+options(java.parameters = "-Xmx6G")
+
+library(r5r)
+library(accessibility)
+library(h3jsr)
+library(dplyr)
+library(mapview)
+library(ggplot2)
+```
+
+
+## Construindo uma rede de transporte roteável
+
+Primeiro, construímos a rede de transporte multimodal passando o caminho da nossa pasta com de dados para a função `r5r::build_network()`.
+
+```{r, message=FALSE}
+# path to data directory
+data_path <- system.file("extdata/poa", package = "r5r")
+
+# build network
+r5r_core <- r5r::build_network(data_path, 
+                          verbose = FALSE)
+
+```
+
+## Calculando uma matriz de tempo de viagem
+
+A segunda etapa é calcular uma matriz de tempo de viagem com estimativas de porta-a-porta de todas as origens para todos os destinos. Para isso, usamos a função `r5r::travel_time_matrix()`.
+
+Essa função recebe como input a rede roteável criada acima, pontos de origem e destino como `data.frames` com colunas `id`, `lon` e `lat`, o modo de transporte e o horário de partida.
+
+```{r}
+# read points data
+points <- read.csv(file.path(data_path, "poa_hexgrid.csv"))
+
+# routing inputs
+mode <- c("walk", "transit")
+max_trip_duration <- 30                                         # <1>
+departure_datetime <- as.POSIXct("13-05-2019 14:00:00",
+                                 format = "%d-%m-%Y %H:%M:%S")
+
+# calculate travel time matrix
+ttm <- r5r::travel_time_matrix(
+  r5r_core = r5r_core,
+  origins = points,
+  destinations = points,
+  mode = mode,
+  departure_datetime = departure_datetime,
+  max_trip_duration = max_trip_duration,
+  progress = TRUE
+  )
+```
+1. Em minutos
+
+::: {.callout-tip}
+## Dica
+Observe que a função `r5r::travel_time_matrix()` inclui vários parâmetros adicionais que permitem especificar algumas características da viagem, como tempo máximo de caminhada, uma janela de horário de partida, o número máximo de trechos de transporte público permitidos, etc. Para mais informações, consulte a documentação da função chamando `?r5r::travel_time_matrix` no Console no R ou acesse a documentação no [site do {r5r}](https://ipeagit.github.io/r5r/reference/travel_time_matrix.html).
+:::
+
+O output é um `data.frame`, com essa cara abaixo. É uma matriz em formato longo com as colunas `from_id`, `to_id` e uma terceira coluna indicando o tempo de viagem (em minutos) para cada par de origem e destino.
+
+```{r}
+head(ttm)
+```
+
+
+::: {.callout-note appearance="simple"}
+## Velocidade de processamento
+
+A função `travel_time_matrix()` utiliza uma extensão do algoritmo de roteamento RAPTOR [@conway2017evidencebased], o que torna o R5 extremamente rápido. Dependendo do número de pares de origem e destino, o `{r5r}` pode calcular matrizes de tempo de viagem entre 6 e 200 vezes mais rápido do que outros programas de roteamento multimodal [@higgins2022calculating].
+:::
+
+
+## Calculating accessibility 
+
+<img align="right" src="/images/accessibility_logo.png" alt="logo" width="140"> 
+
+Depois de calcular uma matriz de tempo de viagem, podemos combiná-la com dados de uso do solo para calcular a acessibilidade. Para isso, usaremos o pacote `{accessibility}`, que oferece funções rápidas e convenientes para calcular várias medidas de acessibilidade.
+
+O pacote atualmente inclui mais de 7 tipos diferentes de medidas de acessibilidade (veja os detalhes no [site de documentação do pacote](https://ipeagit.github.io/accessibility/reference/cost_to_closest.html)).
+
+- `cost_to_closest()`: Custo mínimo de viagem até as N oportunidades mais próximas
+- `cumulative_cutoff()`: Acesso cumulativo com base em um *limite* de tempo de viagem
+- `cumulative_interval()`: Acesso cumulativo com base em um *intervalo* de tempo de viagem
+- `gravity()`: Medidas de acessibilidade gravitacioinais
+- `floating_catchment_area()`: Área de captação flutuante
+- `spatial_availability()`: Disponibilidade espacial
+- `balancing_cost()`: Medida de acessibilidade de custo de balanceamento
+
+Todas as funções do pacote recebem como input (a) uma matriz de custos pré-calculada - no nosso caso, uma matriz de tempo de viagem, e (b) alguns dados de uso do solo com o número de oportunidades (por exemplo, escolas, empregos) em cada célula da área de estudo. Ambos os dados devem estar organizados no formato `data.frame`. Vimos acima a estrutura da matriz de viagem. O `data.frame` de uso do solo deve estar organizado assim:
+
+
+```{r}
+# land use data
+head(points)                # <1>
+```
+1. Os dados de uso do solo devem conter uma coluna `id`, referindo-se aos ids listados na matriz de viagem, e o número de oportunidades em cada local.
+
+Agora vamos calcular alguns indicadores de acessibilidade.
+
+
+### Medida de acessibilidade cumulativa
+
+#### Acessibilidade cumulativa baseada em limite de tempo
+
+Para calcular uma medida tradicional de acessibilidade cumulativa, podemos usar a função `accessibility::cumulative_cutoff()`. Junto com a matriz de viagem e os conjuntos de dados de uso do solo, precisamos apenas passar o nome da coluna com os valores de tempo de viagem, o nome da coluna com a contagem de oportunidades e um limite de tempo de viagem.
+
+Aqui, calculamos o número de escolas acessíveis em 20 minutos.
+
+```{r}
+# threshold-based cumulative accessibility
+access_cum_t <- accessibility::cumulative_cutoff(
+  travel_matrix = ttm, 
+  land_use_data = points,
+  travel_cost = 'travel_time_p50',
+  opportunity = 'schools',
+  cutoff = 20
+  )
+  
+head(access_cum_t)
+
+```
+### Acessibilidade cumulativa baseada em intervalo de tempo
+
+Estudos anteriores mostraram que a escolha *ad hoc* de um único limite de tempo de viagem pode influenciar substancialmente os resultados das medidas tradicionais de acessibilidade cumulativa, introduzindo viés nas avaliações de projetos de transporte e análises de equidade [@pereira2019future]. Para superar esse problema, propusemos uma medida de acessibilidade cumulativa com *intervalo de tempo* [@tomasiello2023time]. Essa nova métrica estima o número médio (ou mediano) de oportunidades que podem ser alcançadas considerando múltiplos limites minuto a minuto dentro de um intervalo de tempo de viagem.
+
+A principal vantagem dessa métrica é que ela mitiga os impactos de escolhas arbitrárias de duração de viagem na análise de acessibilidade, enquanto preserva as vantagens de cálculo e comunicabilidade das medidas cumulativas baseadas em limites.
+
+Aqui, calculamos o número médio de escolas que podem ser alcançadas entre 15 e 25 minutos.
+
+```{r}
+# interval-based cumulative accessibility
+access_cum_i <- accessibility::cumulative_interval(
+  travel_matrix = ttm, 
+  land_use_data = points,
+  travel_cost = 'travel_time_p50',
+  opportunity = 'schools',
+  interval = c(15, 25),
+  summary_function = mean
+  )
+  
+head(access_cum_i)
+
+```
+
+
+<!-- 
+::: {.callout-tip}
+## Acessibilidade Ativa vs Passiva
+
+Por padrão, a maioria das funções do `{accessibility}` calcula a acessibilidade *ativa*, ou seja, uma contagem ponderada de oportunidades que podem ser alcançadas ao *sair* de um determinado local. Ao definir o parâmetro `active = FALSE`, você pode calcular a área de captação (também conhecida como acessibilidade passiva) de um determinado local, ou seja, o número de pessoas que poderiam *chegar*...
+:::
+ -->
+
+
+
+### Medidas de acessibilidade baseadas em gravidade
+
+O pacote também inclui a função `accessibility::gravity()` para calcular métricas de acessibilidade baseadas em gravidade de forma muito flexível.
+
+Ela possui um parâmetro `decay_function` que pode receber qualquer *função* para converter o custo de viagem em um fator de impedância usado para ponderar as oportunidades. Para conveniência, o pacote atualmente inclui as seguintes funções:
+
+- `decay_binary()`
+- `decay_exponential()`
+- `decay_linear()`
+- `decay_logistic()`
+- `decay_power()`
+- `decay_stepped()`
+
+Vamos ver alguns exemplos com as funções de decaimento logístico e exponencial negativo:
+
+```{r}
+# logistic decay
+access_lgst <- gravity(
+  travel_matrix = ttm,
+  land_use_data = points,
+  decay_function = decay_logistic(cutoff = 15, sd = 5),
+  opportunity = "schools",
+  travel_cost = "travel_time_p50"
+)
+
+# negative exponential decay
+access_nexp <- gravity(
+  travel_matrix = ttm,
+  land_use_data = points,
+  decay_function = decay_exponential(decay_value = 0.1),
+  opportunity = "schools",
+  travel_cost = "travel_time_p50"
+)
+
+```
+
+Aqui está uma rápida visualização da forma das curvas de decaimento que utilizamos.
+
+```{r}
+#| code-fold: true
+#| code-show: false
+#| fig-height: 3
+negative_exp <- decay_exponential(decay_value = 0.1)
+logistic <- decay_logistic(cutoff = 15, sd = 5)
+
+travel_costs <- seq(0, 30, 0.1)
+
+weights <- data.frame(
+  minutes = travel_costs,
+  negative_exp = negative_exp(travel_costs)[["0.1"]],
+  logistic = logistic(travel_costs)[["c15;sd5"]]
+)
+
+# reshape data to long format
+weights <- tidyr::pivot_longer(
+  weights,
+  cols = c('negative_exp',  'logistic'),
+  names_to = "decay_function",
+  values_to = "weights"
+)
+
+ggplot(weights) +
+  geom_line(aes(minutes, weights, color = decay_function),
+            show.legend = FALSE) +
+  facet_wrap(. ~ decay_function, ncol = 2) +
+  theme_minimal()
+```
+
+## Mapa de Acessibilidade
+
+Agora é muito simples unir todas essas estimativas de acessibilidade à nossa grade espacial para visualizar esses resultados em um mapa.
+
+```{r}
+# rbind all accessibility results in a single data.frame
+access_cum_t$metric <- 'cum_threshold'
+access_cum_i$metric <- 'cum_interval'
+access_lgst$metric <- 'grav_logistic'
+access_nexp$metric <- 'grav_exponential'
+
+df <- rbind(access_cum_t,
+            access_cum_i,
+            access_lgst,
+            access_nexp
+            )
+
+# retrieve polygons of H3 spatial grid
+grid <- h3jsr::cell_to_polygon(
+  points$id, 
+  simple = FALSE
+  )
+
+# merge accessibility estimates
+access_sf <- left_join(
+  grid, 
+  df, 
+  by = c('h3_address'='id')
+  )
+
+```
+
+
+Gerar mapa com visualização espacial dos resultados
+
+```{r}
+ggplot() +
+  geom_sf(data = access_sf, aes(fill = schools), color= NA) +
+  scale_fill_viridis_c(direction = -1, option = 'B') +
+  labs(title = "Acesso a escolas por transporte público usando diferentes métricas de acessibilidade", fill = "Índice de\nacessibilidade") +
+  theme_minimal() +
+  theme(axis.title = element_blank()) +
+  facet_wrap(~metric) +
+  theme_void()
+
+```
+
+
+
+::: {.callout-tip appearance="simple"}
+O pacote `{r5r}` possui várias funcionalidades avançadas:
+
+- Consideração de custos monetários
+- Consideração Nível de tolerância ao Estresse do Tráfego (LTS)
+- Uso de uma janela de partida em vez de um horário exato
+- Planejamento de viagens com output detalhado
+- Cálculo de isócronas
+- Geração de outputs que não cabem na memória RAM
+
+Consulte as [vignettes do pacote no site para mais informações](https://ipeagit.github.io/r5r/index.html).
+:::

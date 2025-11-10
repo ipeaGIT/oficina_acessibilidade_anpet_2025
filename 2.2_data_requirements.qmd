@@ -1,0 +1,38 @@
+---
+from: markdown+emoji
+---
+
+# Dados necessários
+
+Para realizar análises de roteamento e acessibilidade de transporte usando o pacote `{r5r}`, você precisará de alguns conjuntos de dados de *input*:
+
+- Uma rede viária do OpenStreetMap (OSM) em formato `.pbf` (*obrigatório*).
+- Um feed de transporte público no formato `GTFS.zip` (opcional).
+- Um arquivo raster com dados de Modelo Digital de Elevação em formato `.tif` (opcional).
+- Alguns dados sobre a distribuição espacial da população e/ou atividades, como emprego, escolas e instalações de saúde.
+
+Os dados que usaremos nesta oficina são fornecidos junto com os código do curso. Se você gostaria de encontrar dados semelhantes para outras regiões do Brasil e do mundo, aqui estão algumas fontes de dados. Veja também os slides abaixo.
+
+## Rede viária
+
+- **Rede viária** (obrigatório):
+  - [{osmextract}](https://docs.ropensci.org/osmextract/), pacaote de R;
+  - [Geofabrik](https://download.geofabrik.de/), website;
+  - [HOT Export Tool](https://export.hotosm.org/), website;
+  - [BBBike Extract Service](https://extract.bbbike.org/), website.
+  - [Protomaps](https://protomaps.com/downloads/osm) website
+
+## Rede de transporte público
+
+- **Rede de transporte público** (optional):
+  - [{tidytransit}](https://r-transit.github.io/tidytransit/),pacote de R;
+  - [Transitland](https://www.transit.land/), website;
+  - [Mobility Database](https://database.mobilitydata.org/) website
+
+## Topografia
+
+- **Topografia** (opcional):
+  - [{elevatr}](https://github.com/jhollist/elevatr), pacote de R;
+  - Nasa's [SRTMGL1](https://lpdaac.usgs.gov/products/srtmgl1v003/), website.
+
+<p><embed src="slides/2_data_requirements.pdf" style="width:100.0%;height:100vh;" /></p>

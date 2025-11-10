@@ -1,0 +1,88 @@
+project:
+  type: book
+  output-dir: docs
+
+about:
+  template: solana
+  # links:
+  #   - icon: twitter
+  #     text: twitter
+  #     href: https://x.com/UrbanDemog
+  #   - icon: github
+  #     text: Github
+  #     href: https://github.com/ipeaGIT/oficina_acessibilidade_anpet_2024
+
+execute:
+  freeze: auto
+
+lang: pt
+book:
+  title: "Um Curso Prático de Acessibilidade Urbana em R"
+  language: pt
+  author: 
+  - name: "Rafael H. M. Pereira"
+    email: rafael.pereira@ipea.gov.br
+    url: https://www.urbandemographics.org
+    orcid: 0000-0003-2125-7465
+    affiliation: "Instituto de Pesquisa Econômica Aplicada (Ipea)"
+  chapters:
+    - index.qmd
+    - part: "Primeiros passos"
+      chapters:
+        - 2.1_installation.qmd
+        - 2.2_data_requirements.qmd
+    - part: "Calculando acessibilidade"
+      chapters:
+        - 3.1_quick_approach.qmd
+        - 3.2_flexible_approach.qmd
+        - 3.3_equity_measures.qmd
+    - part: "Dados do Projeto Acesso a Oportunidades"
+      chapters:
+        - 4_aopdata_acessibilidade.qmd
+    - references.qmd
+    
+  site-url: https://ipeagit.github.io/oficina_acessibilidade_anpet_2024/
+  repo-url: https://github.com/ipeaGIT/oficina_acessibilidade_anpet_2024
+  favicon: /images/favicon.png
+  sidebar:
+    style: "docked"
+    search: true
+    tools: 
+      - icon: github
+        text: Github
+        href: https://github.com/ipeaGIT/oficina_acessibilidade_anpet_2024
+      - icon: twitter
+        text: twitter
+        href: https://x.com/UrbanDemog
+      - icon: linkedin
+        text: linkedin
+        href: https://www.linkedin.com/in/rafael-h-m-pereira/
+  page-navigation: true
+  page-footer: 
+    border: false
+    left: "Copyright 2024, Rafael H. M. Pereira" 
+    right: 
+      - icon: github
+        href: https://github.com/ipeaGIT/oficina_acessibilidade_anpet_2024
+
+
+format:
+  html:
+    theme:
+      light: cosmo
+      dark: slate
+    css: styles.css
+    toc: true
+
+bibliography: references.bib
+
+editor: source
+
+editor_options:
+  markdown:
+    wrap: 72
+    canonical: true
+
+google-scholar: true
+code-link: true
+

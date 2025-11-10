@@ -1,0 +1,164 @@
+---
+from: markdown+emoji
+code-annotations: hover
+---
+
+
+# Aborgadem rápida
+
+<img align="right" src="/images/r5r_logo.png?raw=true" alt="logo" width="140"> 
+**Nesta primeira seção prática da oficina, aprenderemos uma maneira rápida e simples de calcular a acessibilidade espacial usando o pacote `{r5r}`**. Na próxima seção, veremos uma maneira mais flexível e robusta de fazer a mesma coisa.
+
+Aqui, nós vamos calcular o número de escolas acessíveis por transporte público em um tempo de viagem de até 20 minutos.
+
+- **Alocando memória para o Java e carregando pacotes**
+
+Primeiro, vamos aumentar a memória disponível para executar o Java, que é usado pelo programa roteamento R5. Para aumentar a memória disponível para 4 GB, por exemplo, usamos o seguinte comando. Observe que isso precisa ser executado ***antes*** de carregar os pacotes que serão usados em nossa análise.
+
+```{r}
+options(java.parameters = "-Xmx4G")
+```
+
+Agora podemos carregar os pacotes que usaremos nesta seção:
+
+```{r, message=FALSE}
+library(r5r)
+library(h3jsr)
+library(dplyr)
+library(mapview)
+library(ggplot2)
+```
+
+
+## Uma visão rápida dos nossos dados de exemplo
+
+Nosso estudo de caso é a cidade de Porto Alegre, Brasil. O pacote `{r5r}` traz uma pequena amostra de dados para esta cidade, incluindo os seguintes arquivos:
+
+- Uma rede OpenStreetMap: `poa_osm.pbf`
+- Dois feeds GTFS de transporte público: `poa_eptc.zip` (ônibus) e `poa_trensurb.zip` (trens)
+- Um dado de elevação em formato raster: `poa_elevation.tif`
+- Um `data.frame` com dados de uso do solo: o arquivo `poa_hexgrid.csv`, com os centróides de uma grade hexagonal regular cobrindo a área da amostra. O data frame também indica o número de residentes e escolas em cada célula. Usaremos esses pontos como origens e destinos em nossa análise.
+
+Esses conjuntos de dados devem ser salvos em um único diretório (nosso `data_path`). Aqui está um exemplo de como os dados de uso do solo se parecem:
+
+```{r}
+# path to data directory
+data_path <- system.file("extdata/poa", package = "r5r")
+
+# read points data
+points <- read.csv(file.path(data_path, "poa_hexgrid.csv"))
+head(points)
+```
+
+:mag_right: Para visualizar a distribuição espacial desses dados, podemos recuperar a geometria da grade hexagonal H3 e explorá-la usando um mapa interativo:
+
+```{r}
+# retrieve polygons of H3 spatial grid
+grid <- h3jsr::cell_to_polygon(
+  points$id,
+  simple = FALSE
+  )
+
+# merge spatial grid with land use data
+grid_poa <- left_join(
+  grid,
+  points,
+  by = c('h3_address'='id')
+  )
+
+# interactive map
+mapview(grid_poa, zcol = 'population')
+
+```
+
+
+## Construindo uma rede de transporte roteável
+
+Essa abordagem rápida para calcular a acessibilidade envolve apenas 2 etapas. A primeira etapa é construir a rede de transporte multimodal usando a função `r5r::build_network()`.
+
+
+```{r, message=FALSE}
+r5r_core <- r5r::build_network(data_path, 
+                          verbose = FALSE)
+```
+
+Como você pode ver, só precisamos passar o caminho da nossa pasta de dados para a função `r5r::build_network()`. A função então combina os dados OSM, GTFS e de elevação nesse diretório para criar um grafo que é usado para roteamento de viagens entre pares de origem e destino e, consequentemente, para calcular matrizes de tempo de viagem e acessibilidade.
+
+
+## Calculando acessibilidade: abordagem rápida
+
+Na segunda etapa, você pode calcular estimativas de acessibilidade em uma única chamada usando a função `r5r::accessibility()`. Ela inclui diferentes opções de funções de decaimento para calcular medidas cumulativas de acessibilidade e diferentes medidas gravitacionais.
+
+Neste exemplo, nós vamos calculamos a acessibilidade cumulativa do número de escolas e hospitais acessíveis em menos de 20 minutos por transporte público. Assim, usaremos `decay_function = "step"`.
+
+Observe que, para usar `r5r::accessibility()`, o parâmetro `points` deve ser um `data.frame` com colunas que indiquem:
+
+- o `id` de cada local
+- coordenadas espaciais `lat` e `lon`
+- o número de atividades em cada local. O nome desta coluna deve ser passado para o parâmetro `opportunities_colnames`.
+
+
+```{r}
+# routing inputs
+mode <- c("walk", "transit")
+max_walk_time <- 30                                  # <1>
+travel_time_cutoff <- 20                             # <1>
+departure_datetime <- as.POSIXct("13-05-2019 14:00:00",
+                                 format = "%d-%m-%Y %H:%M:%S")
+
+# calculate accessibility
+access1 <- r5r::accessibility(
+  r5r_core = r5r_core,
+  origins = points,
+  destinations = points,
+  mode = mode,
+  opportunities_colnames = c("schools", "healthcare"), # <2>
+  decay_function = "step",
+  cutoffs = travel_time_cutoff,                        # <3>
+  departure_datetime = departure_datetime,
+  max_walk_time = max_walk_time,
+  progress = TRUE
+  )
+
+```
+1. Em minutos  
+2. Observe que você pode passar as colunas de mais de um tipo de oportunidade.  
+3. Da mesma forma, você poderia passar mais de um limite de tempo.
+
+::: {.callout-tip}
+## Dica
+Observe que a função `r5r::accessibility()` possui vários parâmetros adicionais que permitem especificar diferentes características das viagens, incluindo uma duração máxima, velocidade de caminhada e sw bicicleta, nível tolerância ao estresse do tráfego (LTS), etc. Para mais informações, consulte a documentação da função chamando `?r5r::accessibility` no seu console R ou acesse a documentação no [site do {r5r}](https://ipeagit.github.io/r5r/reference/accessibility.html).
+:::
+
+O output da função `r5r::accessibility()` é um `data.frame` que mostra, para cada origem `id`, o número de oportunidades que podem ser alcançadas:
+
+```{r}
+head(access1)
+
+```
+
+## Mapa de acessibilidade
+
+Agora é muito simples unir essas estimativas de acessibilidade à nossa grade espacial para visualizar esses resultados em um mapa.
+
+```{r}
+# merge spatial grid with accessibility estimates
+access_sf <- left_join(
+  grid, 
+  access1, 
+  by = c('h3_address'='id')
+  )
+
+# plot
+ggplot() +
+  geom_sf(data = access_sf, aes(fill = accessibility), color= NA) +
+  scale_fill_viridis_c(direction = -1, option = 'B') +
+  labs(title = 'Número de escolas e hospitais acessíveis por transporte público em 20 minutos',
+       fill = 'Número de\nestabelecimentos') +
+  theme_minimal() +
+  theme(axis.title = element_blank()) +
+  facet_wrap(~opportunity) +
+  theme_void()
+
+```
+

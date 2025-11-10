@@ -1,0 +1,156 @@
+---
+from: markdown+emoji
+code-annotations: hover
+---
+
+
+# Medidas de equidade
+
+Uma questão central na pesquisa e prática em transporte envolve avaliar como os benefícios de acessibilidade dos sistemas e projetos de transporte são distribuídos entre diferentes grupos socioeconômicos e demográficos. As preocupações com a equidade no transporte estão fundamentalmente relacionadas a dois tipos de questões: (1) desigualdade de acessibilidade e (2) pobreza de acessibilidade. **Nesta seção, você aprenderá a usar o pacote `{accessibility}` para calcular diferentes indicadores de desigualdade e pobreza de acessibilidade.**
+<img align="right" src="/images/accessibility_logo.png?raw=true" alt="logo" width="140">
+
+Em um artigo recente, discutimos as vantagens e desvantagens de várias métricas de desigualdade e pobreza mais comumente usadas na literatura de transporte [@karner2024advances] - PDF aberto [aqui](https://www.urbandemographics.org/publication/2024_transp_measuring_transportation_equity/). Os slides abaixo fornecem um *resumo muito breve* de algumas ideias discutidas no artigo, apenas o suficiente para acompanhar esta seção do workshop. No entanto, recomendo fortemente a leitura completa do artigo.
+
+ 
+<!-- Slides -->
+<p><embed src="slides/3.3_equity_metrics.pdf" style="width:100.0%;height:100vh;" /></p>
+
+Nesta seção, usaremos alguns conjuntos de dados de exemplo para a cidade de Belo Horizonte (Brasil), que acompanham o pacote `{accessibility}`. No bloco de código abaixo, lemos a matriz de tempo de viagem e os dados de uso do solo e calculamos o número médio de empregos acessíveis em 30 minutos por transporte público.
+
+
+```{r, message=FALSE}
+library(accessibility)
+library(ggplot2)
+library(dplyr)
+
+# path to data
+data_dir <- system.file("extdata", package = "accessibility")
+
+# read travel matrix and land use data
+ttm <- readRDS(file.path(data_dir, "travel_matrix.rds"))
+lud <- readRDS(file.path(data_dir, "land_use_data.rds"))
+
+# calculate threshold-based cumulative access
+access_df <- cumulative_cutoff(
+  travel_matrix = ttm,
+  land_use_data = lud,
+  opportunity = "jobs",
+  travel_cost = "travel_time",
+  cutoff = 30
+  )
+
+head(access_df)
+```
+
+:mag_right: Hora de uma inspeção visual rápida! Podemos unir nossos resultados de acessibilidade com os dados de uso do solo/população e visualizar como a acessibilidade ao emprego é distribuída entre diferentes grupos de renda.
+
+```{r}
+# merge acces and land use data
+df <- access_df |>
+      rename(jobs_access = jobs) |>
+      left_join(lud, by='id')
+
+# remove spatial units with no population
+df <- filter(df, population > 0)
+
+# box plot
+ggplot(data = df) +
+  geom_boxplot(show.legend = FALSE,
+               aes(x = income_decile, 
+                   y = jobs_access / 1000, 
+                   weight = population, 
+                   color = income_decile)) +
+  scale_colour_brewer(palette = 'RdBu') + 
+  labs(subtitle = 'Número de empregos acessíveis em 30 minutos por transporte público',
+       x = 'Decis de renda', y = 'Empregos (em milhares)') +
+  scale_x_discrete(labels = c("D1\npobres", 
+                              paste0("D", 2:9), 
+                              "D10\nricos")) +
+  theme_minimal()
+```
+
+O box plot mostra uma distribuição muito desigual de acesso a oportunidades de emprego. Agora vamos ver o que podemos aprender sobre desigualdade e pobreza de acessibilidade nesta região com alguns indicadores
+
+::: {.callout-tip appearance="simple"}
+Uma explicação detalhada de todas as medidas de desigualdade e pobreza abordadas no `{accessibility}` está disponível na [documentação do pacote](https://ipeagit.github.io/accessibility/articles/inequality_and_poverty.html).
+:::
+
+# Medidas de desigualdade
+
+## Razão de Palma
+
+A razão de Palma é calculada como a acessibilidade média dos 10% mais ricos dividida pela acessibilidade média dos 40% mais pobres. Valores do Índice de Palma maiores que 1 indicam que a população mais rica tem níveis de acessibilidade mais altos do que a população mais pobre, enquanto valores menores que 1 indicam a situação oposta.
+
+No exemplo aqui, vemos que a população mais rica pode acessar, em média, 3,8 vezes mais empregos do que a população pobre.
+
+```{r}
+palma <- palma_ratio(
+  accessibility_data = access_df,
+  sociodemographic_data = lud,
+  opportunity = "jobs",
+  population = "population",
+  income = "income_per_capita"
+  )
+
+palma
+```
+
+## ~~Índice de Gini~~
+
+Provavelmente, você não deveria estar usando o índice de Gini para medir desigualdade de acessibilidade ;) [veja @karner2024advances].
+
+## Índice de concentração
+
+O índice de concentração (CI) estima a extensão em que as desigualdades de acessibilidade estão sistematicamente associadas aos níveis socioeconômicos dos indivíduos. Os valores do CI podem variar teoricamente entre -1 e 1 (quando toda a acessibilidade está concentrada na pessoa mais ou menos favorecida, respectivamente). Valores negativos indicam que as desigualdades favorecem os pobres, enquanto valores positivos indicam um viés pró-rico.
+
+```{r}
+ci <- accessibility::concentration_index(
+  accessibility_data = access_df,
+  sociodemographic_data = lud,
+  opportunity = "jobs",
+  population = "population",
+  income = "income_per_capita",
+  type = "corrected"
+  )
+
+ci
+```
+
+# Medidas de pobreza
+
+## Medidas de pobreza Foster-Greer-Thorbecke (FGT) 
+
+A função `fgt_poverty()` calcula as métricas FGT, uma família de medidas de pobreza originalmente proposta por @foster1984class, e que pode ser usada para captar a extensão e a gravidade da pobreza de uma distribuição de acessibilidade. A família FGT é composta por três medidas:
+
+- FGT0: captura a extensão da pobreza como uma simples contagem - ou seja, a proporção de pessoas abaixo da linha de pobreza;
+- FGT1: também conhecido como "índice de gap de pobreza", captura a gravidade da pobreza como a distância percentual média entre a linha de pobreza e a acessibilidade dos indivíduos abaixo dessa linha;
+- FGT2: simultaneamente capta a extensão e a gravidade da pobreza, calculando o número de pessoas abaixo da linha de pobreza ponderado pelo tamanho do déficit de acessibilidade em relação à linha de pobreza.
+
+Essa função inclui um parâmetro adicional `poverty_line`, usado para definir a linha de pobreza abaixo da qual os indivíduos são considerados em situação de pobreza de acessibilidade. Para o propósito deste exercício, consideraremos o percentil mais baixo de 25% de acesso como nossa linha de pobreza, que neste exemplo é aproximadamente 23 mil empregos.
+
+::: {.callout-important appearance="simple"}
+Lembrete rápido de que a definição de uma linha de pobreza de acessibilidade é, em última análise, uma decisão moral e política e não simplesmente uma questão empírica ou técnica [@pereira2017distributive; @lucas2019measuring].
+:::
+
+
+```{r}
+# get the 25th percentile of access
+quant25 <- quantile(access_df$jobs, .25)
+
+poverty <- fgt_poverty(
+  accessibility_data =  access_df,
+  sociodemographic_data = lud,
+  opportunity = "jobs",
+  population = "population",
+  poverty_line = quant25
+  )
+
+poverty
+```
+
+Interpretação rápida:
+
+- FGT0: 14,8% da população está em situação de pobreza de acessibilidade
+- FGT1: a acessibilidade daqueles em situação de pobreza de acessibilidade é, em média, 5% menor que a linha de pobreza
+- FGT2: não possui uma interpretação direta, mas pode-se dizer que o nível/intensidade geral de pobreza é de 2,8%.
+

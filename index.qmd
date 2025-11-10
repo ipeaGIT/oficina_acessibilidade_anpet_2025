@@ -1,0 +1,59 @@
+# Introdução à oficina
+
+Este site apresenta o material de apoio para a oficina **"Um Curso Prático de Acessibilidade Urbana em R"**. A oficina será realizada como parte da programação do 39<sup>o</sup> [Congresso de Pesquisa e Ensino em Transportes](https://congresso.anpet.org.br/), em Goiânia em novembro de 2025. A oficina é patrocinada pela [Associação Nacional de Pesquisa e Ensino em Transportes (ANPET)](https://www.anpet.org.br/index.php/pt/).
+
+<!-- <img src="/images/conference_banner.png" width="600" align="center"> --> 
+![](images/conference_banner.png){width=350 fig-align="center"}
+
+# Resumo da Oficina:
+
+As análises de roteamento e acessibilidade são cada vez mais utilizadas em nas áreas de pesquisa e planejamento urbano e de transporte. Nesta oficina, você aprenderá a estimar matrizes de tempo de viagem e a realizar análises de acessibilidade em redes de transporte multimodais usando os pacotes [{r5r}](https://ipeagit.github.io/r5r/) e [{accessibility}](https://ipeagit.github.io/accessibility/) na linguagem de programação `R`. Você também vai aprender a baixar os dados do Projeto Acesso a Oportunidades (AOP) usando o pacote [{aopdata}](https://ipeagit.github.io/aopdata/).
+
+O workshop também ilustrará como calcular diferentes medidas de *desigualdade* de acesso a oportunidades e *pobreza* de acessibilidade, aspectos cruciais para avaliar os impactos de acessibilidade de projetos de transporte sob uma perspectiva de equidade. O curso é baseado no livro [“Introdução à acessibilidade urbana: um guia prático em R”](https://ipeagit.github.io/intro_access_book/) [@pereira2023introduction].
+
+<!-- package logos side by side  -->
+<div style="text-align: center">
+
+<table><tr><td><img src='/images/r5r_logo.png' width="180"></td><td><img src='/images/accessibility_logo.png' width="180"></td></tr></table>
+
+</div>
+
+
+::: {.callout-note appearance="simple"}
+O `{r5r}` é um pacote em R que permite realizar roteamento rápido e realista em redes de transporte multimodal (caminhada, bicicleta, transporte público e automóvel). Ele oferece uma interface simples e amigável para o [R5, o Rapid Realistic Routing on Real-world and Reimagined networks](https://github.com/conveyal/r5), o programa de roteamento desenvolvido independentemente pela [Conveyal](https://conveyal.com/). Parabéns à Conveyal pelo trabalho incrível.
+:::
+
+
+Aqui estão alguns slides introdutórios explicando o que abordamos e o que *não* abordamos nesta oficina:
+
+<p><embed src="slides/1_intro.pdf" style="width:100.0%;height:100vh;" /></p>
+
+::: {.callout-important appearance="default"}
+Este workshop assume que o participante tenha um conhecimento básico da linguagem de programação R. Se você deseja se familiarizar com R, recomendamos os livros abaixo:
+
+- [Ciência de Dados em R](https://livro.curso-r.com/)
+- [R for Data Science](https://r4ds.had.co.nz/) (em inglês)
+- [Geocomputation with R](https://geocompr.robinlovelace.net/) (em inglês)
+:::
+
+# Leitura recomendada:
+
+Material de leitura complementar relevante (mas não obrigatório) para o workshop.
+
+- Livro online [“Introdução à acessibilidade urbana: um guia prático em R”](https://ipeagit.github.io/intro_access_book/) [@pereira2023introduction] - Capítulos 3 e 6.
+- Website e documentação do pacote `{accessibility}`, [aqui]((https://ipeagit.github.io/accessibility/).
+- Website e documentação do pacote `{r5r}`, [aqui]((https://ipeagit.github.io/r5r/), por @pereira2021r5r.
+- Artigo do pacote `{r5r}` [@pereira2021r5r].
+- Paper sobre medidas de equidade em transportes, por @karner2024advances.
+- Transport Access Manual, por @levinson2020transport.
+
+# Sobre o instrutor:
+
+**Rafael H. M. Pereira** <br> *Coordenador de Ciência de Dados* <br> Instituto de Pesquisa Econômica Aplicada (Ipea) <br> [Website](https://www.urbandemographics.org/about/) | [Google Scholar](https://scholar.google.com.br/citations?user=dbRivsEAAAAJ&hl)
+| [Twitter](https://x.com/UrbanDemog) | [Linkedin](https://www.linkedin.com/in/rafael-h-m-pereira/) | 
+
+
+## Bio do instrutor:
+
+**Rafael H. M. Pereira** é pesquisador sênior nas áreas de planejamento urbano, ciência de dados espaciais e mobilidade urbana no Instituto de Pesquisa Econômica Aplicada (Ipea), e professor visitante da Universidade de Toronto. Sua pesquisa investiga como as políticas urbanas e tecnologias moldam a organização espacial das cidades, a mobilidade humana, bem como seus impactos nas desigualdades sociais e de saúde. Algumas de suas contribuições nos campos de urban analytics e planejamento envolvem o desenvolvimento de novos métodos e ferramentas computacionais de código aberto para o estudo de sistemas urbanos e redes de transporte. Essas contribuições partem de interesses substantivos sobre questões de equidade no planejamento urbano, desigualdades de acesso a oportunidades, e dos impactos ambientais gerados pelo ambiente construído e por padrões de mobilidade. Com graduação em sociologia pela UnB e mestrado em demografia pela Unicamp, Rafael Pereira obteve seu PhD em geografia pela Universidade de Oxford.
+
